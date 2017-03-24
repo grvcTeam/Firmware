@@ -178,8 +178,12 @@ int udp_sender_thread_main(int argc, char *argv[])
   // -------------------
   /* subscribe to vehicle_attitude topic */
   int vehicle_attitude_sub_fd = orb_subscribe(ORB_ID(vehicle_attitude));
-  /* limit the update rate to 5 Hz */
-  // orb_set_interval(vehicle_attitude_sub_fd, 200);
+  /********************************************************************
+   ********************************************************************
+   *************erase next line to eliminate the limit rate************
+   ********************************************************************
+   ********************************************************************/
+  //orb_set_interval(vehicle_attitude_sub_fd, 200);
 
   /* one could wait for multiple topics with this technique, just using one here */
   px4_pollfd_struct_t fds[] = {
@@ -195,12 +199,12 @@ int udp_sender_thread_main(int argc, char *argv[])
 
 	while (!thread_should_exit) {
     /* wait for sensor update of 1 file descriptor for 1000 ms (1 second) */
-    int poll_ret = px4_poll(fds, 1, 250);
+    int poll_ret = px4_poll(fds, 1, 4);
 
     /* handle the poll result */
     if (poll_ret == 0) {
         /* this means none of our providers is giving us data */
-        PX4_ERR("Got no data within a second");
+        //PX4_ERR("Got no data within a second");
 
     } else if (poll_ret < 0) {
         /* this is seriously bad - should be an emergency */
@@ -218,14 +222,15 @@ int udp_sender_thread_main(int argc, char *argv[])
             struct vehicle_attitude_s raw;
             /* copy sensors raw data into local buffer */
             orb_copy(ORB_ID(vehicle_attitude), vehicle_attitude_sub_fd, &raw);
-            PX4_INFO("Vehicle_attitude:\t%8.4f\t%8.4f\t%8.4f",
+            /*PX4_INFO("Vehicle_attitude:\t%8.4f\t%8.4f\t%8.4f",
                  (double)raw.rollspeed,
                  (double)raw.pitchspeed,
-                 (double)raw.yawspeed);
+                 (double)raw.yawspeed);*/
             msg.roll = raw.rollspeed;
             msg.pitch = raw.pitchspeed;
             msg.yaw = raw.yawspeed;
-            msg.quat = 0;
+            for(int k=0;k<4;k++)
+		msg.quat[k] = raw.q[k];
 
             if (sendto(s, &msg, sizeof(attitudeValues) , 0 , (struct sockaddr *) &si_other, slen)==-1)
             {
