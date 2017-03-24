@@ -72,7 +72,8 @@ set(config_module_list
 	modules/mavlink
 	# GRVC
 	modules/control_correction
-	modules/udp_sender
+	modules/udp_attitude
+	modules/udp_rc_channels 
 
 	#
 	# PX4 drivers

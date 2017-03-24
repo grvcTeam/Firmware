@@ -31,11 +31,11 @@
 #
 ############################################################################
 px4_add_module(
-	MODULE modules__udp_sender
-	MAIN udp_sender
+	MODULE modules__udp_attitude
+	MAIN udp_attitude
 	STACK_MAIN 1200
 	SRCS
-		udp_sender.c
+		udp_attitude.c
 	DEPENDS
 		platforms__common
 	)

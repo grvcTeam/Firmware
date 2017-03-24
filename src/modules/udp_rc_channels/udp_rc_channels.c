@@ -32,7 +32,7 @@
  ****************************************************************************/
 
 /**
- * @file udp_sender.c
+ * @file udp_rc_channels.c
  * Application to send topcis data through UDP
  *
  * @author Manuel J. Fernadez <manfergonz@gmail.com>
@@ -42,7 +42,7 @@
 #include <px4_posix.h>
 #include <poll.h>
 
-#include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/rc_channels.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,19 +71,19 @@ static int daemon_task;				/**< Handle of daemon task / thread */
 /**
  * management function.
  */
-__EXPORT int udp_sender_main(int argc, char *argv[]);
+__EXPORT int udp_rc_channels_main(int argc, char *argv[]);
 
 /**
  * Mainloop of daemon.
  */
-int udp_sender_thread_main(int argc, char *argv[]);
+int udp_rc_channels_thread_main(int argc, char *argv[]);
 
 /**
  * Print the correct usage.
  */
 static void usage(const char *reason);
 
-void udp_die(char *s);
+void udp_died(char *s);
 
 static void usage(const char *reason)
 {
@@ -94,7 +94,7 @@ static void usage(const char *reason)
 	warnx("usage: daemon {start|stop|status} [-p <additional params>]\n\n");
 }
 
-void udp_die(char *s)
+void udp_died(char *s)
 {
     perror(s);
     exit(1);
@@ -103,7 +103,7 @@ void udp_die(char *s)
 /**
  *
  */
-int udp_sender_main(int argc, char *argv[])
+int udp_rc_channels_main(int argc, char *argv[])
 {
 	if (argc < 2) {
 		usage("missing command");
@@ -123,7 +123,7 @@ int udp_sender_main(int argc, char *argv[])
 						 SCHED_DEFAULT,
 						 SCHED_PRIORITY_DEFAULT,
 						 2000,
-						 udp_sender_thread_main,
+						 udp_rc_channels_thread_main,
 						 (argv) ? (char *const *)&argv[2] : (char *const *)NULL);
 		return 0;
 	}
@@ -148,7 +148,7 @@ int udp_sender_main(int argc, char *argv[])
 	return 1;
 }
 
-int udp_sender_thread_main(int argc, char *argv[])
+int udp_rc_channels_thread_main(int argc, char *argv[])
 {
 
 	warnx("[daemon] starting\n");
@@ -156,12 +156,12 @@ int udp_sender_thread_main(int argc, char *argv[])
   struct sockaddr_in si_other;
   int s, slen=sizeof(si_other);
 
-	attitudeValues msg;
+	rc_channels msg;
 
 	// Create a UDP socket
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 	{
-			udp_die("socket");
+			udp_died("socket");
 	}
 
 	// zero out the structure
@@ -177,7 +177,7 @@ int udp_sender_thread_main(int argc, char *argv[])
   }
   // -------------------
   /* subscribe to vehicle_attitude topic */
-  int vehicle_attitude_sub_fd = orb_subscribe(ORB_ID(vehicle_attitude));
+  int rc_channels_sub_fd = orb_subscribe(ORB_ID(rc_channels));
   /********************************************************************
    ********************************************************************
    *************erase next line to eliminate the limit rate************
@@ -187,7 +187,7 @@ int udp_sender_thread_main(int argc, char *argv[])
 
   /* one could wait for multiple topics with this technique, just using one here */
   px4_pollfd_struct_t fds[] = {
-    { .fd = vehicle_attitude_sub_fd,   .events = POLLIN },
+    { .fd = rc_channels_sub_fd,   .events = POLLIN },
         /* there could be more file descriptors here, in the form like:
          * { .fd = other_sub_fd,   .events = POLLIN },
          */
@@ -219,22 +219,19 @@ int udp_sender_thread_main(int argc, char *argv[])
 
         if (fds[0].revents & POLLIN) {
             /* obtained data for the first file descriptor */
-            struct vehicle_attitude_s raw;
+            struct rc_channels_s raw;
             /* copy sensors raw data into local buffer */
-            orb_copy(ORB_ID(vehicle_attitude), vehicle_attitude_sub_fd, &raw);
+            orb_copy(ORB_ID(rc_channels), rc_channels_sub_fd, &raw);
             /*PX4_INFO("Vehicle_attitude:\t%8.4f\t%8.4f\t%8.4f",
                  (double)raw.rollspeed,
                  (double)raw.pitchspeed,
                  (double)raw.yawspeed);*/
-            msg.roll = raw.rollspeed;
-            msg.pitch = raw.pitchspeed;
-            msg.yaw = raw.yawspeed;
-            for(int k=0;k<4;k++)
-		msg.quat[k] = raw.q[k];
+            for(int k=0;k<8;k++)
+		msg.rc_channels[k] = raw.channels[k];
 
-            if (sendto(s, &msg, sizeof(attitudeValues) , 0 , (struct sockaddr *) &si_other, slen)==-1)
+            if (sendto(s, &msg, sizeof(rc_channels) , 0 , (struct sockaddr *) &si_other, slen)==-1)
             {
-              udp_die("sendto()");
+              udp_died("sendto()");
             }
         }
     }
