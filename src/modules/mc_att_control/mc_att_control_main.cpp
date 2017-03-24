@@ -1115,7 +1115,7 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	// 		fprintf(logfile, "r:%f p:%f y:%f t:%f \n",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2), (double)_thrust_sp);
 	//   	}
 
-	warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
+	//warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;

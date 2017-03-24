@@ -38,7 +38,6 @@
  * @author Manuel J. Fernadez <manfergonz@gmail.com>
  */
 
-
 #include <px4_posix.h>
 #include <poll.h>
 
