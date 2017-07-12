@@ -777,7 +777,7 @@ MulticopterAttitudeControl::control_attitude(float dt)
 {
 	vehicle_attitude_setpoint_poll();
 
-	_thrust_sp = _v_att_sp.thrust;
+	_thrust_sp = _v_att_sp.thrust + _thrust_correction;
 
 	/* construct attitude setpoint rotation matrix */
 	math::Quaternion q_sp(_v_att_sp.q_d[0], _v_att_sp.q_d[1], _v_att_sp.q_d[2], _v_att_sp.q_d[3]);
@@ -1090,7 +1090,7 @@ MulticopterAttitudeControl::task_main()
 				_v_rates_sp.roll = _rates_sp(0);
 				_v_rates_sp.pitch = _rates_sp(1);
 				_v_rates_sp.yaw = _rates_sp(2);
-				_v_rates_sp.thrust = _thrust_sp+_thrust_correction;
+				_v_rates_sp.thrust = _thrust_sp;
 				_v_rates_sp.timestamp = hrt_absolute_time();
 
 				if (_v_rates_sp_pub != nullptr) {
