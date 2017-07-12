@@ -43,6 +43,7 @@ set(msg_file_names
 	camera_trigger.msg
 	commander_state.msg
 	control_state.msg
+	control_correction.msg
 	cpuload.msg
 	debug_key_value.msg
 	differential_pressure.msg

@@ -122,6 +122,8 @@
 #include <platforms/posix/px4_messages/px4_vehicle_global_velocity_setpoint.h>
 #include <platforms/posix/px4_messages/px4_vehicle_local_position.h>
 #include <platforms/posix/px4_messages/px4_position_setpoint_triplet.h>
+// GRVC
+#include <platforms/posix/px4_messages/px4_control_correction.h>
 #endif
 #include <systemlib/err.h>
 #include <systemlib/param/param.h>
