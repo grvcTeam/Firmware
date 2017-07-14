@@ -205,7 +205,8 @@ private:
 	math::Vector<3>		_control_correction;	/**< control correction vector */
 	float				_thrust_correction;		/**< thrust correction value */
 
-	float				_channel_alpha;		/**< thrust correction value */
+	float				_channel_alpha;		/**< channel_alpha value */
+	float				_panic_button;		/**< panic button value */
 
 	math::Matrix<3, 3>  _I;				/**< identity matrix */
 
@@ -788,8 +789,14 @@ MulticopterAttitudeControl::rc_channels_poll()
 
 	if (updated) {
 		orb_copy(ORB_ID(rc_channels), _rc_channels_sub, &_rc_channels);
-		_channel_alpha = ((float)_rc_channels.channels[CHANNEL_ALPHA]+1.0f)/2.0f;
-		//warnx("%f",(double)_channel_alpha);
+		_panic_button = (float)_rc_channels.channels[CHANNEL_ALPHA+1];
+		if(_panic_button > 0.0f){
+			_channel_alpha = ((float)_rc_channels.channels[CHANNEL_ALPHA]+1.0f)/2.0f;
+		}else{
+			_channel_alpha = 0.0f;
+		}
+
+		// warnx("%d",(double)_channel_alpha);
 	}
 }
 
@@ -953,7 +960,7 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 		       rates_d_scaled.emult(_rates_prev - rates) / dt +
 		       _params.rate_ff.emult(_rates_sp))*(1.0f - _channel_alpha) +
 			   _control_correction*_channel_alpha;
-//warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
+warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;
 
