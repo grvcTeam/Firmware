@@ -84,6 +84,7 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/mc_att_ctrl_status.h>
+#include <uORB/topics/rc_channels.h>
 #include <uORB/topics/battery_status.h>
 #include <systemlib/param/param.h>
 #include <systemlib/err.h>
@@ -112,6 +113,8 @@ extern "C" __EXPORT int mc_att_control_main(int argc, char *argv[]);
 #define AXIS_INDEX_YAW 2
 #define AXIS_COUNT 3
 
+#define CHANNEL_ALPHA 5
+
 class MulticopterAttitudeControl
 {
 public:
@@ -139,6 +142,7 @@ private:
 
 	int		_ctrl_state_sub;		/**< control state subscription */
 	int		_ctrl_correction_sub;		/**< control state subscription */
+	int		_rc_channels_sub;		/**< rc_channels subscription */
 	int		_v_att_sp_sub;			/**< vehicle attitude setpoint subscription */
 	int		_v_rates_sp_sub;		/**< vehicle rates setpoint subscription */
 	int		_v_control_mode_sub;	/**< vehicle control mode subscription */
@@ -159,7 +163,8 @@ private:
 	bool		_actuators_0_circuit_breaker_enabled;	/**< circuit breaker to suppress output */
 
 	struct control_state_s				_ctrl_state;		/**< control state */
-	struct control_correction_s			_ctrl_correction;		/**< control state */
+	struct control_correction_s			_ctrl_correction;		/**< _ctrl_correction */
+	struct rc_channels_s				_rc_channels;		/**< _rc_channels */
 	struct vehicle_attitude_setpoint_s	_v_att_sp;			/**< vehicle attitude setpoint */
 	struct vehicle_rates_setpoint_s		_v_rates_sp;		/**< vehicle rates setpoint */
 	struct manual_control_setpoint_s	_manual_control_sp;	/**< manual control setpoint */
@@ -199,6 +204,8 @@ private:
 
 	math::Vector<3>		_control_correction;	/**< control correction vector */
 	float				_thrust_correction;		/**< thrust correction value */
+
+	float				_channel_alpha;		/**< thrust correction value */
 
 	math::Matrix<3, 3>  _I;				/**< identity matrix */
 
@@ -347,9 +354,14 @@ private:
 	void		battery_status_poll();
 
 	/**
-	 * Check for sensor thermal correction updates.
+	 * Check for control_correction updates.
 	 */
 	void		control_correction_poll();
+
+	/**
+	 * Check for channel alpha correction updates.
+	 */
+	void		rc_channels_poll();
 
 	/**
 	 * Shim for calling task_main from task_create.
@@ -767,6 +779,20 @@ MulticopterAttitudeControl::control_correction_poll()
 	}
 }
 
+void
+MulticopterAttitudeControl::rc_channels_poll()
+{
+	/* check if there is a new message */
+	bool updated;
+	orb_check(_rc_channels_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(rc_channels), _rc_channels_sub, &_rc_channels);
+		_channel_alpha = ((float)_rc_channels.channels[CHANNEL_ALPHA]+1.0f)/2.0f;
+		//warnx("%f",(double)_channel_alpha);
+	}
+}
+
 /**
  * Attitude controller.
  * Input: 'vehicle_attitude_setpoint' topics (depending on mode)
@@ -922,11 +948,12 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	/* angular rates error */
 	math::Vector<3> rates_err = _rates_sp - rates;
 
-	_att_control = rates_p_scaled.emult(rates_err) +
+	_att_control = (rates_p_scaled.emult(rates_err) +
 		       _rates_int +
 		       rates_d_scaled.emult(_rates_prev - rates) / dt +
-		       _params.rate_ff.emult(_rates_sp)+_control_correction;
-//warnx("DATAS: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
+		       _params.rate_ff.emult(_rates_sp))*(1.0f - _channel_alpha) +
+			   _control_correction*_channel_alpha;
+//warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;
 
@@ -991,6 +1018,7 @@ MulticopterAttitudeControl::task_main()
 	_v_rates_sp_sub = orb_subscribe(ORB_ID(vehicle_rates_setpoint));
 	_ctrl_state_sub = orb_subscribe(ORB_ID(control_state));
 	_ctrl_correction_sub = orb_subscribe(ORB_ID(control_correction));
+	_rc_channels_sub = orb_subscribe(ORB_ID(rc_channels));
 	_v_control_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 	_params_sub = orb_subscribe(ORB_ID(parameter_update));
 	_manual_control_sp_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
@@ -1054,6 +1082,7 @@ MulticopterAttitudeControl::task_main()
 			vehicle_motor_limits_poll();
 			battery_status_poll();
 			control_correction_poll();
+			rc_channels_poll();
 
 			/* Check if we are in rattitude mode and the pilot is above the threshold on pitch
 			 * or roll (yaw can rotate 360 in normal att control).  If both are true don't
