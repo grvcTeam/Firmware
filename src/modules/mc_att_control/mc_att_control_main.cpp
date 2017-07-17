@@ -960,7 +960,7 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 		       rates_d_scaled.emult(_rates_prev - rates) / dt +
 		       _params.rate_ff.emult(_rates_sp))*(1.0f - _channel_alpha) +
 			   _control_correction*_channel_alpha;
-warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
+//warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;
 
