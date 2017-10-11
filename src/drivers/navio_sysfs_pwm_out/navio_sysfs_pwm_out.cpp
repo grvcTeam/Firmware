@@ -349,17 +349,17 @@ void task_main(int argc, char *argv[])
 			}
 
 			const uint16_t reverse_mask = 0;
-			uint16_t disarmed_pwm[4];
-			uint16_t min_pwm[4];
-			uint16_t max_pwm[4];
+			uint16_t disarmed_pwm[6];
+			uint16_t min_pwm[6];
+			uint16_t max_pwm[6];
 
-			for (unsigned int i = 0; i < 4; i++) {
+			for (unsigned int i = 0; i < 6; i++) {
 				disarmed_pwm[i] = _pwm_disarmed;
 				min_pwm[i] = _pwm_min;
 				max_pwm[i] = _pwm_max;
 			}
 
-			uint16_t pwm[4];
+			uint16_t pwm[6];
 
 			// TODO FIXME: pre-armed seems broken
 			pwm_limit_calc(_armed.armed,
