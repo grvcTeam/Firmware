@@ -32,7 +32,7 @@
  ****************************************************************************/
 
 /**
- * @file udp_attitude.c
+ * @file udp_local_position.c
  * Application to send topcis data through UDP
  *
  * @author Manuel J. Fernadez <manfergonz@gmail.com>
@@ -41,8 +41,8 @@
 #include <px4_posix.h>
 #include <poll.h>
 
-#include <uORB/topics/vehicle_attitude.h>
-#include <uORB/topics/att_control.h>
+#include <uORB/topics/vehicle_local_position.h>
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,19 +71,19 @@ static int daemon_task;				/**< Handle of daemon task / thread */
 /**
  * management function.
  */
-__EXPORT int udp_attitude_main(int argc, char *argv[]);
+__EXPORT int udp_local_position_main(int argc, char *argv[]);
 
 /**
  * Mainloop of daemon.
  */
-int udp_attitude_thread_main(int argc, char *argv[]);
+int udp_local_position_thread_main(int argc, char *argv[]);
 
 /**
  * Print the correct usage.
  */
 static void usage(const char *reason);
 
-void udp_die(char *s);
+void udp_dead(char *s);
 
 static void usage(const char *reason)
 {
@@ -94,7 +94,7 @@ static void usage(const char *reason)
 	warnx("usage: daemon {start|stop|status} [-p <additional params>]\n\n");
 }
 
-void udp_die(char *s)
+void udp_dead(char *s)
 {
     perror(s);
     exit(1);
@@ -103,7 +103,7 @@ void udp_die(char *s)
 /**
  *
  */
-int udp_attitude_main(int argc, char *argv[])
+int udp_local_position_main(int argc, char *argv[])
 {
 	if (argc < 2) {
 		usage("missing command");
@@ -123,7 +123,7 @@ int udp_attitude_main(int argc, char *argv[])
 						 SCHED_DEFAULT,
 						 SCHED_PRIORITY_DEFAULT,
 						 2000,
-						 udp_attitude_thread_main,
+						 udp_local_position_thread_main,
 						 (argv) ? (char *const *)&argv[2] : (char *const *)NULL);
 		return 0;
 	}
@@ -148,7 +148,7 @@ int udp_attitude_main(int argc, char *argv[])
 	return 1;
 }
 
-int udp_attitude_thread_main(int argc, char *argv[])
+int udp_local_position_thread_main(int argc, char *argv[])
 {
 
 	warnx("[daemon] starting\n");
@@ -156,12 +156,12 @@ int udp_attitude_thread_main(int argc, char *argv[])
   struct sockaddr_in si_other;
   int s, slen=sizeof(si_other);
 
-	attitudeValues msg;
+	local_pos_values msg;
 
 	// Create a UDP socket
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 	{
-			udp_die("socket");
+			udp_dead("socket");
 	}
 
 	// zero out the structure
@@ -176,21 +176,20 @@ int udp_attitude_thread_main(int argc, char *argv[])
       exit(1);
   }
   // -------------------
-  /* subscribe to vehicle_attitude topic */
-  int vehicle_attitude_sub_fd = orb_subscribe(ORB_ID(vehicle_attitude));
-	int att_control_sub_fd = orb_subscribe(ORB_ID(att_control));
+  /* subscribe to vehicle_local_position topic */
+  int vehicle_local_position_sub_fd = orb_subscribe(ORB_ID(vehicle_local_position));
+
 
   /********************************************************************
    ********************************************************************
    *************erase next line to eliminate the limit rate************
    ********************************************************************
    ********************************************************************/
-  //orb_set_interval(vehicle_attitude_sub_fd, 200);
+  //orb_set_interval(vehicle_local_position_sub_fd, 200);
 
   /* one could wait for multiple topics with this technique, just using one here */
   px4_pollfd_struct_t fds[] = {
-    { .fd = vehicle_attitude_sub_fd,   .events = POLLIN },
-		{ .fd = att_control_sub_fd,   .events = POLLIN },
+    { .fd = vehicle_local_position_sub_fd,   .events = POLLIN },
         /* there could be more file descriptors here, in the form like:
          * { .fd = other_sub_fd,   .events = POLLIN },
          */
@@ -202,7 +201,7 @@ int udp_attitude_thread_main(int argc, char *argv[])
 
 	while (!thread_should_exit) {
     /* wait for sensor update of 2 file descriptors for 4 ms (250Hz) */
-    int poll_ret = px4_poll(fds, 2, 4);
+    int poll_ret = px4_poll(fds, 1, 4);
 
     /* handle the poll result */
     if (poll_ret == 0) {
@@ -220,32 +219,28 @@ int udp_attitude_thread_main(int argc, char *argv[])
 
     } else {
 				// fds[1] to give priority to att_control update
-        if ((fds[0].revents || fds[1].revents) & POLLIN) {
+        if (fds[0].revents & POLLIN) {
             /* obtained data for the first file descriptor */
-            struct vehicle_attitude_s v_attitude;
-						struct att_control_s att_control;
+            struct vehicle_local_position_s v_local_pos;
+
             /* copy sensors raw data into local buffer */
-            orb_copy(ORB_ID(vehicle_attitude), vehicle_attitude_sub_fd, &v_attitude);
-						orb_copy(ORB_ID(att_control), att_control_sub_fd, &att_control);
-            /*PX4_INFO("Vehicle_attitude:\t%8.4f\t%8.4f\t%8.4f",
-                 (double)v_attitude.rollspeed,
-                 (double)v_attitude.pitchspeed,
-                 (double)v_attitude.yawspeed);*/
-            msg.roll_s = v_attitude.rollspeed;
-            msg.pitch_s = v_attitude.pitchspeed;
-            msg.yaw_s = v_attitude.yawspeed;
-            for(int k=0;k<4;k++)
-							msg.quat[k] = v_attitude.q[k];
+            orb_copy(ORB_ID(vehicle_local_position), vehicle_local_position_sub_fd, &v_local_pos);
+            /*PX4_INFO("vehicle_local_position:\t%8.4f\t%8.4f\t%8.4f",
+                 (double)v_local_pos.rollspeed,
+                 (double)v_local_pos.pitchspeed,
+                 (double)v_local_pos.yawspeed);*/
+            msg.x = v_local_pos.x;
+            msg.y = v_local_pos.y;
+            msg.z = v_local_pos.z;
 
-						msg.att_control[0] = att_control.roll;
-						msg.att_control[1] = att_control.pitch;
-						msg.att_control[2] = att_control.yaw;
-						
-						msg.timestamp=v_attitude.timestamp;
+	          msg.vx = v_local_pos.vx;
+	          msg.vy = v_local_pos.vy;
+            msg.vz = v_local_pos.vz;
 
-            if (sendto(s, &msg, sizeof(attitudeValues) , 0 , (struct sockaddr *) &si_other, slen)==-1)
+						msg.timestamp=v_local_pos.timestamp;
+            if (sendto(s, &msg, sizeof(local_pos_values) , 0 , (struct sockaddr *) &si_other, slen)==-1)
             {
-              udp_die("sendto()");
+              udp_dead("sendto()");
             }
         }
     }

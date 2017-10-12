@@ -2,16 +2,18 @@
 #define ATTITUDE_H
 
 #define BUFLEN 512  //Max length of buffer
-#define PORT 8082   //The port on which to send data
+#define PORT 8084   //The port on which to send data
 //#define SERVER "192.168.1.30"
 #define SERVER "169.254.223.150"
 typedef struct{
-  float roll_s;
-  float pitch_s;
-  float yaw_s;
-  float quat[4];
-  float att_control[3];
+  float lat;
+  float lon;
+  float alt;
+  float vn;
+  float ve;
+  float vd;
+  float pressure_alt;
   float timestamp;
-} attitudeValues;
+} global_pos_values;
 
 #endif

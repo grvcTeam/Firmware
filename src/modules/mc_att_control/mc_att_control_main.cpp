@@ -1138,7 +1138,7 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	_att_control = _att_control*(1 - _channel_alpha) +
 	  			   _control_correction*_channel_alpha;
 
-	warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
+	//warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;

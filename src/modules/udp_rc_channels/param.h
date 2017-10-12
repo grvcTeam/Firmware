@@ -7,6 +7,9 @@
 #define SERVER "169.254.223.150"
 typedef struct{
   float rc_channels[8];
+  float armed;
+  float rc_lost;
+  float timestamp;
 } rc_channels;
 
 #endif
