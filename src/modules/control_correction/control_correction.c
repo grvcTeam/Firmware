@@ -210,7 +210,7 @@ int control_correction_thread_main(int argc, char *argv[])
 			struct control_correction_s raw;
 			orb_copy(ORB_ID(control_correction), control_sub, &raw);
 
-			warnx("Waiting for data...");
+			//warnx("Waiting for data...");
 			fflush(stdout);
 
 			//try to receive some data, this is a blocking call

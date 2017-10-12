@@ -220,7 +220,7 @@ int udp_attitude_thread_main(int argc, char *argv[])
 
     } else {
 				// fds[1] to give priority to att_control update
-        if (fds[1].revents & POLLIN) {
+        if ((fds[0].revents || fds[1].revents) & POLLIN) {
             /* obtained data for the first file descriptor */
             struct vehicle_attitude_s v_attitude;
 						struct att_control_s att_control;

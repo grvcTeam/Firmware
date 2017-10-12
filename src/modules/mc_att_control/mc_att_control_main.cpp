@@ -1112,8 +1112,7 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 /*	  warnx("-------------------------------------------------------");
 	  warnx("_att_control:p:%f",(double)_att_control(1));
 */
-	_att_control = _att_control*(1 - _channel_alpha) +
-	  			   _control_correction*_channel_alpha;
+
 /*		   	warnx("_control_correction: p:%f a:%f",(double)(_control_correction(1)*_channel_alpha));
 			warnx("_att_control_corrected: r:%f p:%f y:%f t:%f",(double)_att_control(1));
 			warnx("-------------------------------------------------------");
@@ -1122,7 +1121,6 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	// 		fprintf(logfile, "r:%f p:%f y:%f t:%f \n",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2), (double)_thrust_sp);
 	//   	}
 
-	//warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 
 	/* publish _att_control vector */
 	_att_control_udp.roll = _att_control(0);
@@ -1137,7 +1135,10 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	}
 	_att_control_pub = orb_advertise(ORB_ID(att_control), &_att_control_udp);
 
+	_att_control = _att_control*(1 - _channel_alpha) +
+	  			   _control_correction*_channel_alpha;
 
+	warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;
