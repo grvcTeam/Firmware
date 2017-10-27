@@ -78,6 +78,7 @@
 #include <uORB/topics/mc_att_ctrl_status.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/rc_channels.h>
 #include <uORB/topics/sensor_correction.h>
 #include <uORB/topics/sensor_gyro.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
@@ -98,6 +99,9 @@ extern "C" __EXPORT int mc_att_control_main(int argc, char *argv[]);
 #define TPA_RATE_LOWER_LIMIT 0.05f
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
 #define ATTITUDE_TC_DEFAULT 0.2f
+
+#define CHANNEL_ALPHA 5
+#define CHANNEL_PANIC 6
 
 #define AXIS_INDEX_ROLL 0
 #define AXIS_INDEX_PITCH 1
@@ -131,6 +135,7 @@ private:
 	bool	_task_should_exit;		/**< if true, task_main() should exit */
 	int		_control_task;			/**< task handle */
 
+	int		_rc_channels_sub;		/**< rc_channels subscription */
 	int		_ctrl_correction_sub;	/**< control correction subscription */
 	int		_ctrl_state_sub;		/**< control state subscription */
 	int		_v_att_sp_sub;			/**< vehicle attitude setpoint subscription */
@@ -157,6 +162,7 @@ private:
 
 	bool		_actuators_0_circuit_breaker_enabled;	/**< circuit breaker to suppress output */
 
+	struct rc_channels_s				_rc_channels;		/**< _rc_channels */
 	struct control_correction_s			_ctrl_correction;	/**< control correction */
 	struct control_state_s				_ctrl_state;		/**< control state */
 	struct vehicle_attitude_setpoint_s	_v_att_sp;			/**< vehicle attitude setpoint */
@@ -200,6 +206,9 @@ private:
 
 	math::Vector<3>		_control_correction;	/**< control correction vector */
 	float				_thrust_correction;		/**< thrust correction value */
+
+	float				_channel_alpha;		/**< thrust correction value */
+	float				_panic_button;		/**< thrust correction value */
 
 	math::Matrix<3, 3>  _I;				/**< identity matrix */
 
@@ -371,6 +380,11 @@ private:
 	/* Check for control correction updates.
 	 */
 	void		control_correction_poll();
+
+	/**
+ 	 * Check for channel alpha correction updates.
+ 	 */
+ 	void		rc_channels_poll();
 
 	/**
 	 * Shim for calling task_main from task_create.
@@ -860,6 +874,26 @@ MulticopterAttitudeControl::control_correction_poll()
 	}
 }
 
+void
+MulticopterAttitudeControl::rc_channels_poll()
+{
+ 	/* check if there is a new message */
+ 	bool updated;
+ 	orb_check(_rc_channels_sub, &updated);
+
+	if (updated) {
+ 		orb_copy(ORB_ID(rc_channels), _rc_channels_sub, &_rc_channels);
+		_panic_button = (float)_rc_channels.channels[CHANNEL_PANIC];
+		 		if(_panic_button > 0.0f){
+		 		_channel_alpha = ((float)_rc_channels.channels[CHANNEL_ALPHA]+1.0f)/2.0f;
+		 		}else{
+		 			_channel_alpha = 0.0f;
+		 		}
+		// warnx("%d",(double)_channel_alpha);
+	}
+}
+
+
 /**
  * Attitude controller.
  * Input: 'vehicle_attitude_setpoint' topics (depending on mode)
@@ -1055,7 +1089,10 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	_att_control = rates_p_scaled.emult(rates_err) +
 		       _rates_int +
 		       rates_d_scaled.emult(_rates_prev - rates) / dt +
-		       _params.rate_ff.emult(_rates_sp) + _control_correction;
+		       _params.rate_ff.emult(_rates_sp) +
+			   _control_correction*_channel_alpha;
+
+   //warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;
@@ -1122,6 +1159,7 @@ MulticopterAttitudeControl::task_main()
 	_ctrl_state_sub = orb_subscribe(ORB_ID(control_state));
 	_v_control_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 	_params_sub = orb_subscribe(ORB_ID(parameter_update));
+	_rc_channels_sub = orb_subscribe(ORB_ID(rc_channels));
 	_ctrl_correction_sub = orb_subscribe(ORB_ID(control_correction));
 	_manual_control_sp_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
 	_armed_sub = orb_subscribe(ORB_ID(actuator_armed));
@@ -1198,6 +1236,7 @@ MulticopterAttitudeControl::task_main()
 			control_state_poll();
 			sensor_correction_poll();
 			control_correction_poll();
+			rc_channels_poll();
 
 			/* Check if we are in rattitude mode and the pilot is above the threshold on pitch
 			 * or roll (yaw can rotate 360 in normal att control).  If both are true don't
