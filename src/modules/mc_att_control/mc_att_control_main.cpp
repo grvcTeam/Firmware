@@ -54,7 +54,8 @@
  * Controller doesn't use Euler angles for work, they generated only for more human-friendly control and logging.
  * If rotation matrix setpoint is invalid it will be generated from Euler angles for compatibility with old position controllers.
  */
-
+#include <stdlib.h>
+#include <sys/time.h>
 #include <conversion/rotation.h>
 #include <drivers/drv_hrt.h>
 #include <lib/geo/geo.h>
@@ -131,6 +132,12 @@ public:
 	int		start();
 
 private:
+
+	// FILE *logfile;
+
+	struct timeval t0,t1;
+	double t;
+	uint8_t start_timer = 0;
 
 	bool	_task_should_exit;		/**< if true, task_main() should exit */
 	int		_control_task;			/**< task handle */
@@ -871,6 +878,10 @@ MulticopterAttitudeControl::control_correction_poll()
  		 _control_correction(1)=(float)_ctrl_correction.pitchCorrection;
  		 _control_correction(2)=(float)_ctrl_correction.yawCorrection;
 		 _thrust_correction = (float)_ctrl_correction.thrustCorrection;
+
+		if (fabs(_control_correction(1))  < 0.00001){
+	 	 	start_timer = 1;
+		}
 	}
 }
 
@@ -1089,10 +1100,22 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	_att_control = rates_p_scaled.emult(rates_err) +
 		       _rates_int +
 		       rates_d_scaled.emult(_rates_prev - rates) / dt +
-		       _params.rate_ff.emult(_rates_sp) +
-			   _control_correction*_channel_alpha;
+		       _params.rate_ff.emult(_rates_sp);
 
-   //warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
+/*	  warnx("-------------------------------------------------------");
+	  warnx("_att_control:p:%f",(double)_att_control(1));
+*/
+	_att_control = _att_control +
+	  			   _control_correction*_channel_alpha;
+/*		   	warnx("_control_correction: p:%f a:%f",(double)(_control_correction(1)*_channel_alpha));
+			warnx("_att_control_corrected: r:%f p:%f y:%f t:%f",(double)_att_control(1));
+			warnx("-------------------------------------------------------");
+*/
+	// if (logfile != NULL) {
+	// 		fprintf(logfile, "r:%f p:%f y:%f t:%f \n",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2), (double)_thrust_sp);
+	//   	}
+
+	warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
 
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;
@@ -1185,6 +1208,8 @@ MulticopterAttitudeControl::task_main()
 	/* wakeup source: gyro data from sensor selected by the sensor app */
 	px4_pollfd_struct_t poll_fds = {};
 	poll_fds.events = POLLIN;
+
+	gettimeofday(&t0,NULL);
 
 	while (!_task_should_exit) {
 
@@ -1421,8 +1446,17 @@ MulticopterAttitudeControl::task_main()
 		}
 
 		perf_end(_loop_perf);
+		//----vuelca en log
+ 		// gettimeofday(&t1,NULL);
+		// t = (t1.tv_sec - t0.tv_sec) + 1e-6*(t1.tv_usec - t0.tv_usec);
+		// if (logfile != NULL) {
+			//// fprintf(logfile, "%.3Lf r:%f p:%f y:%f t:%f \n",(double)t, (double)_att_control(0),(double)_att_control(1),(double)_att_control(2), (double)_thrust_sp);
+			// fprintf(logfile, "%.3Lf\t%f\t%f\t%f\t%f\n", (long double)t, (double)_att_control(0),(double)_att_control(1),(double)_att_control(2), (double)_thrust_sp);
+		// }
 	}
-
+	// if(logfile){
+	// 	fclose(logfile);
+	// }
 	_control_task = -1;
 }
 
@@ -1443,6 +1477,8 @@ MulticopterAttitudeControl::start()
 		warn("task start failed");
 		return -errno;
 	}
+
+	// logfile = fopen("log_Ale.txt", "a");
 
 	return OK;
 }
