@@ -66,6 +66,8 @@
 #include <px4_position_setpoint_triplet.h>
 #include <px4_offboard_control_mode.h>
 #include <px4_vehicle_force_setpoint.h>
+// GRVC
+#include <platforms/posix/px4_messages/px4_control_correction.h>
 #endif
 
 #elif defined(__PX4_NUTTX)

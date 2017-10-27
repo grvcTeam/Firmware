@@ -42,7 +42,9 @@
  * @author Lorenz Meier		<lorenz@px4.io>
  * @author Anton Babushkin	<anton.babushkin@me.com>
  * @author Sander Smeets	<sander@droneslab.com>
- *
+ * Modified by:
+ * Manuel Jesús Fernández - Seville Univ. GRVC Group
+
  * The controller has two loops: P loop for angular error and PD loop for angular rate error.
  * Desired rotation calculated keeping in mind that yaw response is normally slower than roll/pitch.
  * For small deviations controller rotates copter to have shortest path of thrust vector and independently rotates around yaw,
@@ -70,6 +72,7 @@
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/battery_status.h>
+#include <uORB/topics/control_correction.h>
 #include <uORB/topics/control_state.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/mc_att_ctrl_status.h>
@@ -128,6 +131,7 @@ private:
 	bool	_task_should_exit;		/**< if true, task_main() should exit */
 	int		_control_task;			/**< task handle */
 
+	int		_ctrl_correction_sub;	/**< control correction subscription */
 	int		_ctrl_state_sub;		/**< control state subscription */
 	int		_v_att_sp_sub;			/**< vehicle attitude setpoint subscription */
 	int		_v_rates_sp_sub;		/**< vehicle rates setpoint subscription */
@@ -153,6 +157,7 @@ private:
 
 	bool		_actuators_0_circuit_breaker_enabled;	/**< circuit breaker to suppress output */
 
+	struct control_correction_s			_ctrl_correction;	/**< control correction */
 	struct control_state_s				_ctrl_state;		/**< control state */
 	struct vehicle_attitude_setpoint_s	_v_att_sp;			/**< vehicle attitude setpoint */
 	struct vehicle_rates_setpoint_s		_v_rates_sp;		/**< vehicle rates setpoint */
@@ -192,6 +197,9 @@ private:
 	math::Vector<3>		_rates_int;		/**< angular rates integral error */
 	float				_thrust_sp;		/**< thrust setpoint */
 	math::Vector<3>		_att_control;	/**< attitude control vector */
+
+	math::Vector<3>		_control_correction;	/**< control correction vector */
+	float				_thrust_correction;		/**< thrust correction value */
 
 	math::Matrix<3, 3>  _I;				/**< identity matrix */
 
@@ -360,6 +368,10 @@ private:
 	 */
 	void		sensor_correction_poll();
 
+	/* Check for control correction updates.
+	 */
+	void		control_correction_poll();
+
 	/**
 	 * Shim for calling task_main from task_create.
 	 */
@@ -464,6 +476,8 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 	_rates_int.zero();
 	_thrust_sp = 0.0f;
 	_att_control.zero();
+	_control_correction.zero();
+	_thrust_correction = 0.0f;
 
 	_I.identity();
 	_board_rotation.identity();
@@ -830,6 +844,22 @@ MulticopterAttitudeControl::sensor_correction_poll()
 	}
 }
 
+void
+MulticopterAttitudeControl::control_correction_poll()
+{
+	/* check if there is a new message */
+	bool updated;
+ 	orb_check(_ctrl_correction_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(control_correction), _ctrl_correction_sub, &_ctrl_correction);
+ 		 _control_correction(0)=(float)_ctrl_correction.rollCorrection;
+ 		 _control_correction(1)=(float)_ctrl_correction.pitchCorrection;
+ 		 _control_correction(2)=(float)_ctrl_correction.yawCorrection;
+		 _thrust_correction = (float)_ctrl_correction.thrustCorrection;
+	}
+}
+
 /**
  * Attitude controller.
  * Input: 'vehicle_attitude_setpoint' topics (depending on mode)
@@ -840,6 +870,7 @@ MulticopterAttitudeControl::control_attitude(float dt)
 {
 	vehicle_attitude_setpoint_poll();
 
+	// _thrust_sp = _v_att_sp.thrust+_thrust_correction;
 	_thrust_sp = _v_att_sp.thrust;
 
 	/* construct attitude setpoint rotation matrix */
@@ -1024,7 +1055,7 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	_att_control = rates_p_scaled.emult(rates_err) +
 		       _rates_int +
 		       rates_d_scaled.emult(_rates_prev - rates) / dt +
-		       _params.rate_ff.emult(_rates_sp);
+		       _params.rate_ff.emult(_rates_sp) + _control_correction;
 
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;
@@ -1091,6 +1122,7 @@ MulticopterAttitudeControl::task_main()
 	_ctrl_state_sub = orb_subscribe(ORB_ID(control_state));
 	_v_control_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 	_params_sub = orb_subscribe(ORB_ID(parameter_update));
+	_ctrl_correction_sub = orb_subscribe(ORB_ID(control_correction));
 	_manual_control_sp_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
 	_armed_sub = orb_subscribe(ORB_ID(actuator_armed));
 	_vehicle_status_sub = orb_subscribe(ORB_ID(vehicle_status));
@@ -1165,6 +1197,7 @@ MulticopterAttitudeControl::task_main()
 			battery_status_poll();
 			control_state_poll();
 			sensor_correction_poll();
+			control_correction_poll();
 
 			/* Check if we are in rattitude mode and the pilot is above the threshold on pitch
 			 * or roll (yaw can rotate 360 in normal att control).  If both are true don't

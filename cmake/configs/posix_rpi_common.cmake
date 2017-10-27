@@ -70,6 +70,8 @@ set(config_module_list
 	modules/land_detector
 	modules/navigator
 	modules/mavlink
+	# GRVC
+	modules/control_correction
 
 	#
 	# PX4 drivers
