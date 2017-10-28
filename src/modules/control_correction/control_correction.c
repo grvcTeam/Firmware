@@ -220,8 +220,8 @@ int control_correction_thread_main(int argc, char *argv[])
 			}
 
 			//print details of the client/peer and the data received
-			warnx("Received packet from %s:%d\n", inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port));
-		  warnx("Data: %f %f %f %f\n" , (double)msg.roll, (double)msg.pitch,(double)msg.yaw,(double)msg.thrust);
+			//warnx("Received packet from %s:%d\n", inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port));
+		  //warnx("Data: %f %f %f %f\n" , (double)msg.roll, (double)msg.pitch,(double)msg.yaw,(double)msg.thrust);
 
       correction.rollCorrection = msg.roll;
 		  correction.pitchCorrection = msg.pitch;

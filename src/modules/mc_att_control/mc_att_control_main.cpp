@@ -1112,7 +1112,7 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 /*	  warnx("-------------------------------------------------------");
 	  warnx("_att_control:p:%f",(double)_att_control(1));
 */
-	_att_control = _att_control +
+	_att_control = _att_control*(1 - _channel_alpha) +
 	  			   _control_correction*_channel_alpha;
 /*		   	warnx("_control_correction: p:%f a:%f",(double)(_control_correction(1)*_channel_alpha));
 			warnx("_att_control_corrected: r:%f p:%f y:%f t:%f",(double)_att_control(1));
