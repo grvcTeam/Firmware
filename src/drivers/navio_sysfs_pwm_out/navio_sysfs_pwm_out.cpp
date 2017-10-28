@@ -57,12 +57,12 @@ static px4_task_t _task_handle = -1;
 volatile bool _task_should_exit = false;
 static bool _is_running = false;
 
-static const int NUM_PWM = 4;
+static const int NUM_PWM = 6;
 static char _device[64] = "/sys/class/pwm/pwmchip0";
 static int  _pwm_fd[NUM_PWM];
 
 static const int FREQUENCY_PWM = 400;
-static char _mixer_filename[64] = "ROMFS/px4fmu_common/mixers/quad_x.main.mix";
+static char _mixer_filename[64] = "ROMFS/px4fmu_common/mixers/hexa_x.main.mix";
 
 // subscriptions
 int     _controls_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS];
