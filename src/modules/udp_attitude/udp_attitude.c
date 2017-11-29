@@ -202,7 +202,7 @@ int udp_attitude_thread_main(int argc, char *argv[])
 
 	while (!thread_should_exit) {
     /* wait for sensor update of 1 file descriptor for 1000 ms (1 second) */
-    int poll_ret = px4_poll(fds, 1, 4);
+    int poll_ret = px4_poll(fds, 2, 4);
 
     /* handle the poll result */
     if (poll_ret == 0) {
@@ -220,7 +220,7 @@ int udp_attitude_thread_main(int argc, char *argv[])
 
     } else {
 
-        if (fds[0].revents & POLLIN) {
+        if (fds[1].revents & POLLIN) {
             /* obtained data for the first file descriptor */
             struct vehicle_attitude_s v_attitude;
 						struct att_control_s att_control;
@@ -228,9 +228,9 @@ int udp_attitude_thread_main(int argc, char *argv[])
             orb_copy(ORB_ID(vehicle_attitude), vehicle_attitude_sub_fd, &v_attitude);
 						orb_copy(ORB_ID(att_control), att_control_sub_fd, &att_control);
             /*PX4_INFO("Vehicle_attitude:\t%8.4f\t%8.4f\t%8.4f",
-                 (double)raw.rollspeed,
-                 (double)raw.pitchspeed,
-                 (double)raw.yawspeed);*/
+                 (double)v_attitude.rollspeed,
+                 (double)v_attitude.pitchspeed,
+                 (double)v_attitude.yawspeed);*/
             msg.roll_s = v_attitude.rollspeed;
             msg.pitch_s = v_attitude.pitchspeed;
             msg.yaw_s = v_attitude.yawspeed;
