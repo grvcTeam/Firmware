@@ -71,6 +71,7 @@
 #include <systemlib/perf_counter.h>
 #include <systemlib/systemlib.h>
 #include <uORB/topics/actuator_armed.h>
+#include <uORB/topics/att_control.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/control_correction.h>
@@ -160,6 +161,7 @@ private:
 	unsigned _gyro_count;
 	int _selected_gyro;
 
+	orb_advert_t	_att_control_pub;		/**< control att_control publication */
 	orb_advert_t	_v_rates_sp_pub;		/**< rate setpoint publication */
 	orb_advert_t	_actuators_0_pub;		/**< attitude actuator controls publication */
 	orb_advert_t	_controller_status_pub;	/**< controller status publication */
@@ -169,6 +171,7 @@ private:
 
 	bool		_actuators_0_circuit_breaker_enabled;	/**< circuit breaker to suppress output */
 
+	struct att_control_s 				_att_control_udp;	/**< att_control output */
 	struct rc_channels_s				_rc_channels;		/**< _rc_channels */
 	struct control_correction_s			_ctrl_correction;	/**< control correction */
 	struct control_state_s				_ctrl_state;		/**< control state */
@@ -432,6 +435,7 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 	_selected_gyro(0),
 
 	/* publications */
+	_att_control_pub(nullptr),
 	_v_rates_sp_pub(nullptr),
 	_actuators_0_pub(nullptr),
 	_controller_status_pub(nullptr),
@@ -1043,6 +1047,9 @@ MulticopterAttitudeControl::pid_attenuations(float tpa_breakpoint, float tpa_rat
 void
 MulticopterAttitudeControl::control_attitude_rates(float dt)
 {
+	time_t timer;
+	srand((unsigned) time(&timer));
+
 	/* reset integral if disarmed */
 	if (!_armed.armed || !_vehicle_status.is_rotary_wing) {
 		_rates_int.zero();
@@ -1116,6 +1123,21 @@ MulticopterAttitudeControl::control_attitude_rates(float dt)
 	//   	}
 
 	//warnx("DATA: %f %f %f ",(double)_att_control(0),(double)_att_control(1),(double)_att_control(2));
+
+	/* publish _att_control vector */
+	_att_control_udp.roll = _att_control(0);
+	_att_control_udp.pitch = _att_control(1);
+	_att_control_udp.yaw = _att_control(2);
+	_att_control_udp.timestamp = hrt_absolute_time();
+
+	if (_att_control_pub != nullptr) {
+
+		orb_publish(ORB_ID(att_control), _att_control_pub, &_att_control_udp);
+
+	}
+	_att_control_pub = orb_advertise(ORB_ID(att_control), &_att_control_udp);
+
+
 
 	_rates_sp_prev = _rates_sp;
 	_rates_prev = rates;

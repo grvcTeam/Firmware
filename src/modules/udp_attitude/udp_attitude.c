@@ -42,6 +42,7 @@
 #include <poll.h>
 
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/att_control.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -177,6 +178,8 @@ int udp_attitude_thread_main(int argc, char *argv[])
   // -------------------
   /* subscribe to vehicle_attitude topic */
   int vehicle_attitude_sub_fd = orb_subscribe(ORB_ID(vehicle_attitude));
+	int att_control_sub_fd = orb_subscribe(ORB_ID(att_control));
+
   /********************************************************************
    ********************************************************************
    *************erase next line to eliminate the limit rate************
@@ -187,6 +190,7 @@ int udp_attitude_thread_main(int argc, char *argv[])
   /* one could wait for multiple topics with this technique, just using one here */
   px4_pollfd_struct_t fds[] = {
     { .fd = vehicle_attitude_sub_fd,   .events = POLLIN },
+		{ .fd = att_control_sub_fd,   .events = POLLIN },
         /* there could be more file descriptors here, in the form like:
          * { .fd = other_sub_fd,   .events = POLLIN },
          */
@@ -218,18 +222,24 @@ int udp_attitude_thread_main(int argc, char *argv[])
 
         if (fds[0].revents & POLLIN) {
             /* obtained data for the first file descriptor */
-            struct vehicle_attitude_s raw;
+            struct vehicle_attitude_s v_attitude;
+						struct att_control_s att_control;
             /* copy sensors raw data into local buffer */
-            orb_copy(ORB_ID(vehicle_attitude), vehicle_attitude_sub_fd, &raw);
+            orb_copy(ORB_ID(vehicle_attitude), vehicle_attitude_sub_fd, &v_attitude);
+						orb_copy(ORB_ID(att_control), att_control_sub_fd, &att_control);
             /*PX4_INFO("Vehicle_attitude:\t%8.4f\t%8.4f\t%8.4f",
                  (double)raw.rollspeed,
                  (double)raw.pitchspeed,
                  (double)raw.yawspeed);*/
-            msg.roll = raw.rollspeed;
-            msg.pitch = raw.pitchspeed;
-            msg.yaw = raw.yawspeed;
+            msg.roll_s = v_attitude.rollspeed;
+            msg.pitch_s = v_attitude.pitchspeed;
+            msg.yaw_s = v_attitude.yawspeed;
             for(int k=0;k<4;k++)
-		msg.quat[k] = raw.q[k];
+							msg.quat[k] = v_attitude.q[k];
+
+						msg.att_control[0] = att_control.roll;
+						msg.att_control[1] = att_control.pitch;
+						msg.att_control[2] = att_control.yaw;
 
             if (sendto(s, &msg, sizeof(attitudeValues) , 0 , (struct sockaddr *) &si_other, slen)==-1)
             {
