@@ -198,8 +198,8 @@ int udp_rc_channels_thread_main(int argc, char *argv[])
 	thread_running = true;
 
 	while (!thread_should_exit) {
-    /* wait for sensor update of 1 file descriptor for 1000 ms (1 second) */
-    int poll_ret = px4_poll(fds, 1, 1/49);
+    /* wait for sensor update of 1 file descriptor for 20 ms (~50Hz) */
+    int poll_ret = px4_poll(fds, 1, 20);
 
     /* handle the poll result */
     if (poll_ret == 0) {

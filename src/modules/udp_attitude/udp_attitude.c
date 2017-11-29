@@ -201,7 +201,7 @@ int udp_attitude_thread_main(int argc, char *argv[])
 	thread_running = true;
 
 	while (!thread_should_exit) {
-    /* wait for sensor update of 1 file descriptor for 1000 ms (1 second) */
+    /* wait for sensor update of 2 file descriptors for 4 ms (250Hz) */
     int poll_ret = px4_poll(fds, 2, 4);
 
     /* handle the poll result */
@@ -219,7 +219,7 @@ int udp_attitude_thread_main(int argc, char *argv[])
         error_counter++;
 
     } else {
-
+				// fds[1] to give priority to att_control update
         if (fds[1].revents & POLLIN) {
             /* obtained data for the first file descriptor */
             struct vehicle_attitude_s v_attitude;
