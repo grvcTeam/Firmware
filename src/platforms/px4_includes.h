@@ -68,6 +68,7 @@
 #include <px4_vehicle_force_setpoint.h>
 // GRVC
 #include <platforms/posix/px4_messages/px4_control_correction.h>
+#include <platforms/posix/px4_messages/px4_att_control.h>
 #endif
 
 #elif defined(__PX4_NUTTX)
