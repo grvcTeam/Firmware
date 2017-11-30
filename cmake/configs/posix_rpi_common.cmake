@@ -74,6 +74,7 @@ set(config_module_list
 	modules/control_correction
 	modules/udp_attitude
 	modules/udp_rc_channels 
+	modules/udp_local_position
 
 	#
 	# PX4 drivers
