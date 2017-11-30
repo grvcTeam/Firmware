@@ -228,6 +228,7 @@ int udp_rc_channels_thread_main(int argc, char *argv[])
                  (double)raw.yawspeed);*/
             for(int k=0;k<8;k++)
 		msg.rc_channels[k] = raw.channels[k];
+		msg.timestamp=raw.timestamp;
 
             if (sendto(s, &msg, sizeof(rc_channels) , 0 , (struct sockaddr *) &si_other, slen)==-1)
             {

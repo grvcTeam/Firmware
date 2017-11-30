@@ -240,6 +240,8 @@ int udp_attitude_thread_main(int argc, char *argv[])
 						msg.att_control[0] = att_control.roll;
 						msg.att_control[1] = att_control.pitch;
 						msg.att_control[2] = att_control.yaw;
+						
+						msg.timestamp=v_attitude.timestamp;
 
             if (sendto(s, &msg, sizeof(attitudeValues) , 0 , (struct sockaddr *) &si_other, slen)==-1)
             {

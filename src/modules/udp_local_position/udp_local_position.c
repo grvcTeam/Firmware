@@ -233,9 +233,11 @@ int udp_local_position_thread_main(int argc, char *argv[])
             msg.y = v_local_pos.y;
             msg.z = v_local_pos.z;
 
-	    msg.vx = v_local_pos.vx;
-	    msg.vy = v_local_pos.vy;
+	          msg.vx = v_local_pos.vx;
+	          msg.vy = v_local_pos.vy;
             msg.vz = v_local_pos.vz;
+
+						msg.timestamp=v_local_pos.timestamp;
             if (sendto(s, &msg, sizeof(local_pos_values) , 0 , (struct sockaddr *) &si_other, slen)==-1)
             {
               udp_dead("sendto()");
