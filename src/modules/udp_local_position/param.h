@@ -12,7 +12,7 @@ typedef struct{
   float vx;
   float vy;
   float vz;
-  unsigned int timestamp;
+  float timestamp;
 } local_pos_values;
 
 #endif

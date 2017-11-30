@@ -43,6 +43,7 @@
 #include <poll.h>
 
 #include <uORB/topics/rc_channels.h>
+#include <uORB/topics/vehicle_status.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -178,6 +179,7 @@ int udp_rc_channels_thread_main(int argc, char *argv[])
   // -------------------
   /* subscribe to vehicle_attitude topic */
   int rc_channels_sub_fd = orb_subscribe(ORB_ID(rc_channels));
+	int vehicle_status_sub_fd = orb_subscribe(ORB_ID(vehicle_status));
   /********************************************************************
    ********************************************************************
    *************erase next line to eliminate the limit rate************
@@ -188,6 +190,7 @@ int udp_rc_channels_thread_main(int argc, char *argv[])
   /* one could wait for multiple topics with this technique, just using one here */
   px4_pollfd_struct_t fds[] = {
     { .fd = rc_channels_sub_fd,   .events = POLLIN },
+		{ .fd = vehicle_status_sub_fd,   .events = POLLIN },
         /* there could be more file descriptors here, in the form like:
          * { .fd = other_sub_fd,   .events = POLLIN },
          */
@@ -220,16 +223,20 @@ int udp_rc_channels_thread_main(int argc, char *argv[])
         if (fds[0].revents & POLLIN) {
             /* obtained data for the first file descriptor */
             struct rc_channels_s raw;
+						struct vehicle_status_s raw_status;
             /* copy sensors raw data into local buffer */
             orb_copy(ORB_ID(rc_channels), rc_channels_sub_fd, &raw);
+						orb_copy(ORB_ID(vehicle_status), vehicle_status_sub_fd, &raw_status);
             /*PX4_INFO("Vehicle_attitude:\t%8.4f\t%8.4f\t%8.4f",
                  (double)raw.rollspeed,
                  (double)raw.pitchspeed,
                  (double)raw.yawspeed);*/
             for(int k=0;k<8;k++)
 		msg.rc_channels[k] = raw.channels[k];
+		msg.armed=(raw_status.arming_state==ARMING_STATE_ARMED) ? 1 : 0;
+		msg.rc_lost=raw_status.rc_signal_lost;
 		msg.timestamp=raw.timestamp;
-
+		// PX4_INFO("%d\n%d",msg.armed,msg.rc_lost);
             if (sendto(s, &msg, sizeof(rc_channels) , 0 , (struct sockaddr *) &si_other, slen)==-1)
             {
               udp_died("sendto()");

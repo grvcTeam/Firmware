@@ -13,7 +13,7 @@ typedef struct{
   float ve;
   float vd;
   float pressure_alt;
-  unsigned int timestamp;
+  float timestamp;
 } global_pos_values;
 
 #endif
