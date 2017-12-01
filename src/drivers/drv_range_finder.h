@@ -56,7 +56,7 @@
  */
 
 #define _RANGEFINDERIOCBASE			(0x7900)
-#define __RANGEFINDERIOC(_n)		(_IOC(_RANGEFINDERIOCBASE, _n))
+#define __RANGEFINDERIOC(_n)		(_PX4_IOC(_RANGEFINDERIOCBASE, _n))
 
 /** set the minimum effective distance of the device */
 #define RANGEFINDERIOCSETMINIUMDISTANCE	__RANGEFINDERIOC(1)

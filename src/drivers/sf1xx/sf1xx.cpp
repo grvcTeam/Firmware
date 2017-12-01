@@ -60,9 +60,9 @@
 #include <unistd.h>
 #include <vector>
 
-#include <nuttx/arch.h>
-#include <nuttx/wqueue.h>
-#include <nuttx/clock.h>
+#include <arch/board/board.h>	// #include <nuttx/arch.h>
+#include <px4_workqueue.h>  	// #include <nuttx/wqueue.h>
+#include <px4_tasks.h>				// #include <nuttx/clock.h>
 
 #include <systemlib/perf_counter.h>
 #include <systemlib/err.h>
@@ -79,7 +79,7 @@
 /* Configuration Constants */
 #define SF1XX_BUS 		PX4_I2C_BUS_EXPANSION
 #define SF1XX_BASEADDR 	0x66
-#define SF1XX_DEVICE_PATH	"/dev/sf1xx"
+#define SF1XX_DEVICE_PATH	"/dev/i2c-1"
 
 
 #ifndef CONFIG_SCHED_WORKQUEUE
@@ -94,8 +94,8 @@ public:
 
 	virtual int 		init();
 
-	virtual ssize_t		read(struct file *filp, char *buffer, size_t buflen);
-	virtual int			ioctl(struct file *filp, int cmd, unsigned long arg);
+	virtual ssize_t		read(device::file_t *filp, char *buffer, size_t buflen);
+	virtual int			ioctl(device::file_t *filp, int cmd, unsigned long arg);
 
 	/**
 	* Diagnostics - print some basic information about the driver.
@@ -179,7 +179,7 @@ private:
 extern "C" __EXPORT int sf1xx_main(int argc, char *argv[]);
 
 SF1XX::SF1XX(int bus, int address) :
-	I2C("SF1XX", SF1XX_DEVICE_PATH, bus, address, 400000),
+	I2C("SF1XX", SF1XX_DEVICE_PATH, bus, address),
 	_min_distance(-1.0f),
 	_max_distance(-1.0f),
 	_conversion_interval(-1),
@@ -228,7 +228,8 @@ SF1XX::init()
 {
 	int ret = PX4_ERROR;
 	int hw_model;
-	param_get(param_find("SENS_EN_SF1XX"), &hw_model);
+	PX4_PARAM_GET_BYNAME("SENS_EN_SF1XX", &hw_model);
+	work_queues_init();
 
 	switch (hw_model) {
 	case 0:
@@ -273,7 +274,7 @@ SF1XX::init()
 	/* allocate basic report buffers */
 	_reports = new ringbuffer::RingBuffer(2, sizeof(distance_sensor_s));
 
-	set_address(SF1XX_BASEADDR);
+	// set_device_address(SF1XX_BASEADDR);
 
 	if (_reports == nullptr) {
 		return ret;
@@ -292,10 +293,10 @@ SF1XX::init()
 	}
 
 	// Select altitude register
-	int ret2 = measure();
+	int ret2 = collect();
 
 	if (ret2 == 0) {
-		ret = OK;
+		ret = PX4_OK;
 		_sensor_ok = true;
 		DEVICE_LOG("(%dm %dHz) with address %d found", (int)_max_distance,
 			   (int)(1e6f / _conversion_interval), SF1XX_BASEADDR);
@@ -335,7 +336,7 @@ SF1XX::get_maximum_distance()
 }
 
 int
-SF1XX::ioctl(struct file *filp, int cmd, unsigned long arg)
+SF1XX::ioctl(device::file_t *filp, int cmd, unsigned long arg)
 {
 	switch (cmd) {
 
@@ -346,7 +347,7 @@ SF1XX::ioctl(struct file *filp, int cmd, unsigned long arg)
 			case SENSOR_POLLRATE_MANUAL:
 				stop();
 				_measure_ticks = 0;
-				return OK;
+				return PX4_OK;
 
 			/* external signalling (DRDY) not supported */
 			case SENSOR_POLLRATE_EXTERNAL:
@@ -370,7 +371,7 @@ SF1XX::ioctl(struct file *filp, int cmd, unsigned long arg)
 
 					}
 
-					return OK;
+					return PX4_OK;
 				}
 
 			/* adjust to a legal polling interval in Hz */
@@ -394,7 +395,7 @@ SF1XX::ioctl(struct file *filp, int cmd, unsigned long arg)
 						start();
 					}
 
-					return OK;
+					return PX4_OK;
 				}
 			}
 		}
@@ -412,16 +413,16 @@ SF1XX::ioctl(struct file *filp, int cmd, unsigned long arg)
 				return -EINVAL;
 			}
 
-			irqstate_t flags = px4_enter_critical_section();
+			// irqstate_t flags = px4_enter_critical_section();
 
 			if (!_reports->resize(arg)) {
-				px4_leave_critical_section(flags);
+				// px4_leave_critical_section(flags);
 				return -ENOMEM;
 			}
 
-			px4_leave_critical_section(flags);
+			// px4_leave_critical_section(flags);
 
-			return OK;
+			return PX4_OK;
 		}
 
 	case SENSORIOCGQUEUEDEPTH:
@@ -450,7 +451,7 @@ SF1XX::ioctl(struct file *filp, int cmd, unsigned long arg)
 }
 
 ssize_t
-SF1XX::read(struct file *filp, char *buffer, size_t buflen)
+SF1XX::read(device::file_t *filp, char *buffer, size_t buflen)
 {
 	unsigned count = buflen / sizeof(struct distance_sensor_s);
 	struct distance_sensor_s *rbuf = reinterpret_cast<struct distance_sensor_s *>(buffer);
@@ -527,7 +528,7 @@ SF1XX::measure()
 		return ret;
 	}
 
-	ret = OK;
+	ret = PX4_OK;
 
 	return ret;
 }
@@ -562,8 +563,8 @@ SF1XX::collect()
 	report.max_distance = get_maximum_distance();
 	report.covariance = 0.0f;
 	/* TODO: set proper ID */
-	report.id = 0;
-
+	report.id = 125;
+	// warnx("%f",(double)report.current_distance);
 	/* publish it, if we are the primary */
 	if (_distance_sensor_topic != nullptr) {
 		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
@@ -574,7 +575,7 @@ SF1XX::collect()
 	/* notify anyone waiting for data */
 	poll_notify(POLLIN);
 
-	ret = OK;
+	ret = PX4_OK;
 
 	perf_end(_sample_perf);
 	return ret;
@@ -587,7 +588,7 @@ SF1XX::start()
 	_reports->flush();
 
 	/* set register to '0' */
-	measure();
+	collect();
 
 	/* schedule a cycle to start things */
 	work_queue(HPWORK, &_work, (worker_t)&SF1XX::cycle_trampoline, this, USEC2TICK(_conversion_interval));
@@ -663,7 +664,7 @@ start()
 	}
 
 	/* create the driver */
-	g_dev = new SF1XX(SF1XX_BUS);
+	g_dev = new SF1XX(SF1XX_BUS,SF1XX_BASEADDR);
 
 	if (g_dev == nullptr) {
 		goto fail;
@@ -674,19 +675,19 @@ start()
 	}
 
 	/* set the poll rate to default, starts automatic data collection */
-	fd = open(SF1XX_DEVICE_PATH, O_RDONLY);
+	fd = px4_open(SF1XX_DEVICE_PATH, O_RDONLY);
 
 	if (fd < 0) {
 		goto fail;
 	}
 
-	if (ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT) < 0) {
-		::close(fd);
+	if (px4_ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT) < 0) {
+		px4_close(fd);
 		goto fail;
 	}
 
-	::close(fd);
-	exit(0);
+
+	return;
 
 fail:
 
@@ -711,7 +712,7 @@ void stop()
 		errx(1, "driver not running");
 	}
 
-	exit(0);
+	// px4_task_exit(0);
 }
 
 /**
@@ -726,7 +727,7 @@ test()
 	ssize_t sz;
 	int ret;
 
-	int fd = open(SF1XX_DEVICE_PATH, O_RDONLY);
+	int fd = px4_open(SF1XX_DEVICE_PATH, O_RDONLY);
 
 	if (fd < 0) {
 		err(1, "%s open failed (try 'sf1xx start' if the driver is not running", SF1XX_DEVICE_PATH);
@@ -744,18 +745,18 @@ test()
 	warnx("time:        %llu", report.timestamp);
 
 	/* start the sensor polling at 2Hz */
-	if (OK != ioctl(fd, SENSORIOCSPOLLRATE, 2)) {
+	if (OK != px4_ioctl(fd, SENSORIOCSPOLLRATE, 2)) {
 		errx(1, "failed to set 2Hz poll rate");
 	}
 
 	/* read the sensor 5x and report each value */
 	for (unsigned i = 0; i < 5; i++) {
-		struct pollfd fds;
+		px4_pollfd_struct_t fds;
 
 		/* wait for data to be ready */
 		fds.fd = fd;
 		fds.events = POLLIN;
-		ret = poll(&fds, 1, 2000);
+		ret = px4_poll(&fds, 1, 2000);
 
 		if (ret != 1) {
 			errx(1, "timed out waiting for sensor data");
@@ -776,11 +777,11 @@ test()
 	}
 
 	/* reset the sensor polling to default rate */
-	if (OK != ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT)) {
+	if (OK != px4_ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT)) {
 		errx(1, "failed to set default poll rate");
 	}
 
-	::close(fd);
+	px4_close(fd);
 	errx(0, "PASS");
 }
 
@@ -790,22 +791,22 @@ test()
 void
 reset()
 {
-	int fd = open(SF1XX_DEVICE_PATH, O_RDONLY);
+	int fd = px4_open(SF1XX_DEVICE_PATH, O_RDONLY);
 
 	if (fd < 0) {
 		err(1, "failed ");
 	}
 
-	if (ioctl(fd, SENSORIOCRESET, 0) < 0) {
+	if (px4_ioctl(fd, SENSORIOCRESET, 0) < 0) {
 		err(1, "driver reset failed");
 	}
 
-	if (ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT) < 0) {
+	if (px4_ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT) < 0) {
 		err(1, "driver poll restart failed");
 	}
 
-	::close(fd);
-	exit(0);
+	px4_close(fd);
+	// px4_task_exit(0);
 }
 
 /**
@@ -821,7 +822,7 @@ info()
 	printf("state @ %p\n", g_dev);
 	g_dev->print_info();
 
-	exit(0);
+	// px4_task_exit(0);
 }
 
 } /* namespace */
@@ -863,6 +864,8 @@ sf1xx_main(int argc, char *argv[])
 	if (!strcmp(argv[1], "info") || !strcmp(argv[1], "status")) {
 		sf1xx::info();
 	}
-
+	return 0;
 	errx(1, "unrecognized command, try 'start', 'test', 'reset' or 'info'");
+	// px4_task_exit(0);
+	// return 0;
 }

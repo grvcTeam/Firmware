@@ -196,7 +196,6 @@ I2C::transfer(const uint8_t *send, unsigned send_len, uint8_t *recv, unsigned re
 		if (ret == PX4_OK) {
 			break;
 		}
-
 	} while (retry_count++ < _retries);
 
 	return ret;
@@ -248,6 +247,7 @@ I2C::transfer(struct i2c_msg *msgv, unsigned msgs)
 
 int I2C::ioctl(device::file_t *filp, int cmd, unsigned long arg)
 {
+	warnx("i2c:ioctl");
 	//struct i2c_rdwr_ioctl_data *packets = (i2c_rdwr_ioctl_data *)(void *)arg;
 	switch (cmd) {
 #ifdef __PX4_LINUX

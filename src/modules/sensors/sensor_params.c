@@ -3361,7 +3361,7 @@ PARAM_DEFINE_INT32(SENS_EN_TRONE, 0);
  * @value 3 SF10/c
  * @value 4 SF11/c
  */
-PARAM_DEFINE_INT32(SENS_EN_SF1XX, 0);
+PARAM_DEFINE_INT32(SENS_EN_SF1XX, 4);
 
 /**
  * Thermal control of sensor temperature
