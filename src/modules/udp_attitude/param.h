@@ -11,7 +11,7 @@ typedef struct{
   float yaw_s;
   float quat[4];
   float att_control[3];
-  float timestamp;
+  uint64_t timestamp;
 } attitudeValues;
 
 #endif

@@ -9,7 +9,7 @@ typedef struct{
   float rc_channels[8];
   float armed;
   float rc_lost;
-  float timestamp;
+  uint64_t timestamp;
 } rc_channels;
 
 #endif
