@@ -58,7 +58,6 @@
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/sensor_preflight.h>
-#include <uORB/topics/sensor_correction.h>
 #include <uORB/topics/sensor_selection.h>
 #include <uORB/topics/vehicle_imu.h>
 #include <uORB/topics/vehicle_magnetometer.h>
@@ -195,9 +194,6 @@ private:
 	uORB::Publication<sensor_selection_s> _sensor_selection_pub{ORB_ID(sensor_selection)};	/**< handle to the sensor selection uORB topic */
 	uORB::PublicationQueued<subsystem_info_s> _info_pub{ORB_ID(subsystem_info)};	/* subsystem info publication */
 
-	/* sensor thermal compensation */
-	uORB::Subscription _corrections_sub{ORB_ID(sensor_correction)};
-
 	// references
 	uORB::SubscriptionCallbackWorkItem(&_vehicle_imu_sub)[3];
 
@@ -225,7 +221,6 @@ private:
 
 	uint64_t _last_accel_timestamp[ACCEL_COUNT_MAX] {};	/**< latest full timestamp */
 
-	sensor_correction_s _corrections {};		/**< struct containing the sensor corrections to be published to the uORB */
 	sensor_selection_s _selection {};		/**< struct containing the sensor selection to be published to the uORB */
 	subsystem_info_s _info {};			/**< subsystem info publication */
 };

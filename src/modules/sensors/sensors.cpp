@@ -148,9 +148,6 @@ private:
 
 	MagCompensationType _mag_comp_type{MagCompensationType::Disabled};
 
-	uint32_t _selected_sensor_device_id{0};
-	uint8_t _selected_sensor_sub_index{0};
-
 	perf_counter_t	_loop_perf;			/**< loop performance counter */
 
 	DataValidator	_airspeed_validator;		/**< data validator to monitor airspeed */
@@ -440,6 +437,7 @@ void Sensors::InitializeVehicleIMU()
 					// Start VehicleIMU instance and store
 					if (imu->Start()) {
 						_vehicle_imu_list[i] = imu;
+						ScheduleNow();
 
 					} else {
 						delete imu;

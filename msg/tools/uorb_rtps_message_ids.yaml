@@ -267,14 +267,12 @@ rtps:
     id: 117
   - msg: sensor_accel_fifo
     id: 118
-  - msg: sensor_accel_status
-    id: 119
   - msg: sensor_gyro_fifo
     id: 120
-  - msg: sensor_gyro_status
-    id: 121
   - msg: vehicle_imu
-    id: 124
+    id: 121
+  - msg: vehicle_imu_status
+    id: 122
   - msg: vehicle_angular_acceleration
     id: 125
   - msg: logger_status

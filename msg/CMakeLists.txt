@@ -112,13 +112,11 @@ set(msg_files
 	satellite_info.msg
 	sensor_accel.msg
 	sensor_accel_fifo.msg
-	sensor_accel_status.msg
 	sensor_baro.msg
 	sensor_combined.msg
 	sensor_correction.msg
 	sensor_gyro.msg
 	sensor_gyro_fifo.msg
-	sensor_gyro_status.msg
 	sensor_mag.msg
 	sensor_preflight.msg
 	sensor_selection.msg
@@ -152,6 +150,7 @@ set(msg_files
 	vehicle_global_position.msg
 	vehicle_gps_position.msg
 	vehicle_imu.msg
+	vehicle_imu_status.msg
 	vehicle_land_detected.msg
 	vehicle_local_position.msg
 	vehicle_local_position_setpoint.msg

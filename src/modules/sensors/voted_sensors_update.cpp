@@ -60,15 +60,6 @@ VotedSensorsUpdate::VotedSensorsUpdate(const Parameters &parameters, bool hil_en
 	_hil_enabled(hil_enabled),
 	_mag_compensator(this)
 {
-	for (unsigned i = 0; i < 3; i++) {
-		_corrections.gyro_scale_0[i] = 1.0f;
-		_corrections.accel_scale_0[i] = 1.0f;
-		_corrections.gyro_scale_1[i] = 1.0f;
-		_corrections.accel_scale_1[i] = 1.0f;
-		_corrections.gyro_scale_2[i] = 1.0f;
-		_corrections.accel_scale_2[i] = 1.0f;
-	}
-
 	_mag.voter.set_timeout(300000);
 	_mag.voter.set_equal_value_threshold(1000);
 
@@ -470,12 +461,6 @@ void VotedSensorsUpdate::parametersUpdate()
 
 void VotedSensorsUpdate::imuPoll(struct sensor_combined_s &raw)
 {
-	float *accel_offsets[] = {_corrections.accel_offset_0, _corrections.accel_offset_1, _corrections.accel_offset_2 };
-	float *accel_scales[] = {_corrections.accel_scale_0, _corrections.accel_scale_1, _corrections.accel_scale_2 };
-
-	float *gyro_offsets[] = {_corrections.gyro_offset_0, _corrections.gyro_offset_1, _corrections.gyro_offset_2 };
-	float *gyro_scales[] = {_corrections.gyro_scale_0, _corrections.gyro_scale_1, _corrections.gyro_scale_2 };
-
 	for (int uorb_index = 0; uorb_index < 3; uorb_index++) {
 		vehicle_imu_s imu_report;
 
@@ -493,42 +478,25 @@ void VotedSensorsUpdate::imuPoll(struct sensor_combined_s &raw)
 			_accel_device_id[uorb_index] = imu_report.accel_device_id;
 			_gyro_device_id[uorb_index] = imu_report.gyro_device_id;
 
-			// convert the delta velocities to an equivalent acceleration before application of corrections
-			const float accel_dt_inv = 1.e6f / (float)imu_report.dt;
+			// convert the delta velocities to an equivalent acceleration
+			const float accel_dt_inv = 1.e6f / (float)imu_report.delta_velocity_dt;
 			Vector3f accel_data = Vector3f{imu_report.delta_velocity} * accel_dt_inv;
-			// apply temperature compensation
-			accel_data(0) = (accel_data(0) - accel_offsets[uorb_index][0]) * accel_scales[uorb_index][0]; // X
-			accel_data(1) = (accel_data(1) - accel_offsets[uorb_index][1]) * accel_scales[uorb_index][1]; // Y
-			accel_data(2) = (accel_data(2) - accel_offsets[uorb_index][2]) * accel_scales[uorb_index][2]; // Z
-
-			// rotate corrected measurements from sensor to body frame
-			accel_data = _board_rotation * accel_data;
 
 
-
-			// convert the delta angles to an equivalent angular rate before application of corrections
-			const float gyro_dt_inv = 1.e6f / (float)imu_report.dt;
+			// convert the delta angles to an equivalent angular rate
+			const float gyro_dt_inv = 1.e6f / (float)imu_report.delta_angle_dt;
 			Vector3f gyro_rate = Vector3f{imu_report.delta_angle} * gyro_dt_inv;
-
-			// apply temperature compensation
-			gyro_rate(0) = (gyro_rate(0) - gyro_offsets[uorb_index][0]) * gyro_scales[uorb_index][0]; // X
-			gyro_rate(1) = (gyro_rate(1) - gyro_offsets[uorb_index][1]) * gyro_scales[uorb_index][1]; // Y
-			gyro_rate(2) = (gyro_rate(2) - gyro_offsets[uorb_index][2]) * gyro_scales[uorb_index][2]; // Z
-
-			// rotate corrected measurements from sensor to body frame
-			gyro_rate = _board_rotation * gyro_rate;
-
 
 			_last_sensor_data[uorb_index].timestamp = imu_report.timestamp_sample;
 			_last_sensor_data[uorb_index].accelerometer_m_s2[0] = accel_data(0);
 			_last_sensor_data[uorb_index].accelerometer_m_s2[1] = accel_data(1);
 			_last_sensor_data[uorb_index].accelerometer_m_s2[2] = accel_data(2);
-			_last_sensor_data[uorb_index].accelerometer_integral_dt = imu_report.dt;
+			_last_sensor_data[uorb_index].accelerometer_integral_dt = imu_report.delta_velocity_dt;
 			_last_sensor_data[uorb_index].accelerometer_clipping = imu_report.delta_velocity_clipping;
 			_last_sensor_data[uorb_index].gyro_rad[0] = gyro_rate(0);
 			_last_sensor_data[uorb_index].gyro_rad[1] = gyro_rate(1);
 			_last_sensor_data[uorb_index].gyro_rad[2] = gyro_rate(2);
-			_last_sensor_data[uorb_index].gyro_integral_dt = imu_report.dt;
+			_last_sensor_data[uorb_index].gyro_integral_dt = imu_report.delta_angle_dt;
 
 
 			_last_accel_timestamp[uorb_index] = imu_report.timestamp_sample;
@@ -752,8 +720,6 @@ void VotedSensorsUpdate::printStatus()
 
 void VotedSensorsUpdate::sensorsPoll(sensor_combined_s &raw, vehicle_magnetometer_s &magnetometer)
 {
-	_corrections_sub.update(&_corrections);
-
 	imuPoll(raw);
 	magPoll(magnetometer);
 

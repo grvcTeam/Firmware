@@ -64,7 +64,6 @@ BMI088_accel::BMI088_accel(I2CSPIBusOption bus_option, int bus, const char *path
 	_bad_registers(perf_alloc(PC_COUNT, "bmi088_accel_bad_registers")),
 	_duplicates(perf_alloc(PC_COUNT, "bmi088_accel_duplicates"))
 {
-	_px4_accel.set_update_rate(BMI088_ACCEL_DEFAULT_RATE);
 }
 
 BMI088_accel::~BMI088_accel()

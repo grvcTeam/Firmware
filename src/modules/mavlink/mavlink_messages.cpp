@@ -84,10 +84,8 @@
 #include <uORB/topics/orbit_status.h>
 #include <uORB/topics/position_controller_status.h>
 #include <uORB/topics/position_setpoint_triplet.h>
-#include <uORB/topics/sensor_accel_status.h>
 #include <uORB/topics/sensor_baro.h>
 #include <uORB/topics/sensor_combined.h>
-#include <uORB/topics/sensor_gyro_status.h>
 #include <uORB/topics/sensor_mag.h>
 #include <uORB/topics/sensor_selection.h>
 #include <uORB/topics/tecs_status.h>
@@ -105,6 +103,7 @@
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/vehicle_imu.h>
+#include <uORB/topics/vehicle_imu_status.h>
 #include <uORB/topics/vehicle_magnetometer.h>
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
@@ -1091,11 +1090,11 @@ protected:
 			msg.time_boot_ms = imu.timestamp / 1000;
 
 			// Accelerometer in mG
-			const float accel_dt_inv = 1.e6f / (float)imu.dt_accel;
+			const float accel_dt_inv = 1.e6f / (float)imu.delta_velocity_dt;
 			const Vector3f accel = Vector3f{imu.delta_velocity} * accel_dt_inv * 1000.0f / CONSTANTS_ONE_G;
 
 			// Gyroscope in mrad/s
-			const float gyro_dt_inv = 1.e6f / (float)imu.dt_gyro;
+			const float gyro_dt_inv = 1.e6f / (float)imu.delta_angle_dt;
 			const Vector3f gyro = Vector3f{imu.delta_angle} * gyro_dt_inv * 1000.0f;
 
 			msg.xacc = (int16_t)accel(0);
@@ -1177,11 +1176,11 @@ protected:
 			msg.time_boot_ms = imu.timestamp / 1000;
 
 			// Accelerometer in mG
-			const float accel_dt_inv = 1.e6f / (float)imu.dt_accel;
+			const float accel_dt_inv = 1.e6f / (float)imu.delta_velocity_dt;
 			const Vector3f accel = Vector3f{imu.delta_velocity} * accel_dt_inv * 1000.0f / CONSTANTS_ONE_G;
 
 			// Gyroscope in mrad/s
-			const float gyro_dt_inv = 1.e6f / (float)imu.dt_gyro;
+			const float gyro_dt_inv = 1.e6f / (float)imu.delta_angle_dt;
 			const Vector3f gyro = Vector3f{imu.delta_angle} * gyro_dt_inv * 1000.0f;
 
 			msg.xacc = (int16_t)accel(0);
@@ -1262,11 +1261,11 @@ protected:
 			msg.time_boot_ms = imu.timestamp / 1000;
 
 			// Accelerometer in mG
-			const float accel_dt_inv = 1.e6f / (float)imu.dt_accel;
+			const float accel_dt_inv = 1.e6f / (float)imu.delta_velocity_dt;
 			const Vector3f accel = Vector3f{imu.delta_velocity} * accel_dt_inv * 1000.0f / CONSTANTS_ONE_G;
 
 			// Gyroscope in mrad/s
-			const float gyro_dt_inv = 1.e6f / (float)imu.dt_gyro;
+			const float gyro_dt_inv = 1.e6f / (float)imu.delta_angle_dt;
 			const Vector3f gyro = Vector3f{imu.delta_angle} * gyro_dt_inv * 1000.0f;
 
 			msg.xacc = (int16_t)accel(0);
@@ -2792,13 +2791,7 @@ public:
 			return size;
 		}
 
-		for (auto &x : _sensor_accel_status_sub) {
-			if (x.advertised()) {
-				return size;
-			}
-		}
-
-		for (auto &x : _sensor_gyro_status_sub) {
+		for (auto &x : _vehicle_imu_status_sub) {
 			if (x.advertised()) {
 				return size;
 			}
@@ -2810,16 +2803,10 @@ public:
 private:
 	uORB::Subscription _sensor_selection_sub{ORB_ID(sensor_selection)};
 
-	uORB::Subscription _sensor_accel_status_sub[3] {
-		{ORB_ID(sensor_accel_status), 0},
-		{ORB_ID(sensor_accel_status), 1},
-		{ORB_ID(sensor_accel_status), 2},
-	};
-
-	uORB::Subscription _sensor_gyro_status_sub[3] {
-		{ORB_ID(sensor_gyro_status), 0},
-		{ORB_ID(sensor_gyro_status), 1},
-		{ORB_ID(sensor_gyro_status), 2},
+	uORB::Subscription _vehicle_imu_status_sub[3] {
+		{ORB_ID(vehicle_imu_status), 0},
+		{ORB_ID(vehicle_imu_status), 1},
+		{ORB_ID(vehicle_imu_status), 2},
 	};
 
 	/* do not allow top copying this class */
@@ -2834,10 +2821,10 @@ protected:
 	{
 		bool updated = _sensor_selection_sub.updated();
 
-		// check for sensor_accel_status update
+		// check for vehicle_imu_status update
 		if (!updated) {
 			for (int i = 0; i < 3; i++) {
-				if (_sensor_accel_status_sub[i].updated() || _sensor_gyro_status_sub[i].updated()) {
+				if (_vehicle_imu_status_sub[i].updated()) {
 					updated = true;
 					break;
 				}
@@ -2857,29 +2844,16 @@ protected:
 			sensor_selection_s sensor_selection{};
 			_sensor_selection_sub.copy(&sensor_selection);
 
-			// primary gyro coning and high frequency vibration metrics
-			if (sensor_selection.gyro_device_id != 0) {
-				for (auto &x : _sensor_gyro_status_sub) {
-					sensor_gyro_status_s status;
-
-					if (x.copy(&status)) {
-						if (status.device_id == sensor_selection.gyro_device_id) {
-							msg.vibration_x = status.coning_vibration;
-							msg.vibration_y = status.vibration_metric;
-							break;
-						}
-					}
-				}
-			}
-
 			// primary accel high frequency vibration metric
 			if (sensor_selection.accel_device_id != 0) {
-				for (auto &x : _sensor_accel_status_sub) {
-					sensor_accel_status_s status;
+				for (auto &x : _vehicle_imu_status_sub) {
+					vehicle_imu_status_s status;
 
 					if (x.copy(&status)) {
-						if (status.device_id == sensor_selection.accel_device_id) {
-							msg.vibration_z = status.vibration_metric;
+						if (status.accel_device_id == sensor_selection.accel_device_id) {
+							msg.vibration_x = status.gyro_coning_vibration;
+							msg.vibration_y = status.gyro_vibration_metric;
+							msg.vibration_z = status.accel_vibration_metric;
 							break;
 						}
 					}
@@ -2888,11 +2862,11 @@ protected:
 
 			// accel 0, 1, 2 cumulative clipping
 			for (int i = 0; i < 3; i++) {
-				sensor_accel_status_s acc_status;
+				vehicle_imu_status_s status;
 
-				if (_sensor_accel_status_sub[i].copy(&acc_status)) {
+				if (_vehicle_imu_status_sub[i].copy(&status)) {
 
-					const uint32_t clipping = acc_status.clipping[0] + acc_status.clipping[1] + acc_status.clipping[2];
+					const uint32_t clipping = status.accel_clipping[0] + status.accel_clipping[1] + status.accel_clipping[2];
 
 					switch (i) {
 					case 0:

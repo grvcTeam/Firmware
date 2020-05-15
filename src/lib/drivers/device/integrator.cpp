@@ -48,16 +48,12 @@ using matrix::Vector3f;
 
 bool Integrator::put(const hrt_abstime &timestamp, const Vector3f &val)
 {
-	if (_last_integration_time == 0) {
+	if ((_last_integration_time == 0) || (timestamp <= _last_integration_time)) {
 		/* this is the first item in the integrator */
 		_last_integration_time = timestamp;
 		_last_reset_time = timestamp;
 		_last_val = val;
 
-		return false;
-
-	} else if (timestamp <= _last_integration_time) {
-		// skip bogus data
 		return false;
 	}
 

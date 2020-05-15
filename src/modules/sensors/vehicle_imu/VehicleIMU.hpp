@@ -50,6 +50,7 @@
 #include <uORB/topics/sensor_accel.h>
 #include <uORB/topics/sensor_gyro.h>
 #include <uORB/topics/vehicle_imu.h>
+#include <uORB/topics/vehicle_imu_status.h>
 
 namespace sensors
 {
@@ -78,10 +79,14 @@ private:
 		float update_interval{0.f};
 	};
 
+	void PublishStatus();
 	bool UpdateIntervalAverage(IntervalAverage &intavg, const hrt_abstime &timestamp_sample);
 	void UpdateIntergratorConfiguration();
+	void UpdateGyroVibrationMetrics(const matrix::Vector3f &delta_angle);
+	void UpdateAccelVibrationMetrics(const matrix::Vector3f &delta_velocity);
 
 	uORB::PublicationMulti<vehicle_imu_s> _vehicle_imu_pub{ORB_ID(vehicle_imu)};
+	uORB::PublicationMulti<vehicle_imu_status_s> _vehicle_imu_status_pub{ORB_ID(vehicle_imu_status)};
 	uORB::Subscription _params_sub{ORB_ID(parameter_update)};
 	uORB::SubscriptionCallbackWorkItem _sensor_accel_sub;
 	uORB::SubscriptionCallbackWorkItem _sensor_gyro_sub;
@@ -97,6 +102,18 @@ private:
 
 	IntervalAverage _accel_interval{};
 	IntervalAverage _gyro_interval{};
+
+	uint32_t _accel_error_count{0};
+	uint32_t _gyro_error_count{0};
+
+	matrix::Vector3f _delta_angle_prev{0.f, 0.f, 0.f};	// delta angle from the previous IMU measurement
+	matrix::Vector3f _delta_velocity_prev{0.f, 0.f, 0.f};	// delta velocity from the previous IMU measurement
+	float _accel_vibration_metric{0.f};	// high frequency vibration level in the IMU delta velocity data (m/s)
+	float _gyro_vibration_metric{0.f};	// high frequency vibration level in the IMU delta angle data (rad)
+	float _gyro_coning_vibration{0.f};	// Level of coning vibration in the IMU delta angles (rad^2)
+
+	uint8_t _delta_velocity_clipping{0};
+	uint32_t _delta_velocity_clipping_total[3] {};
 
 	perf_counter_t _publish_interval_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": publish interval")};
 	perf_counter_t _accel_update_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": accel update interval")};
