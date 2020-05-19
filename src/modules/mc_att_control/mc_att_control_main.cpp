@@ -883,7 +883,7 @@ MulticopterAttitudeControl::control_correction_poll()
  		 _control_correction(2)=(float)_ctrl_correction.yawCorrection;
 		 _thrust_correction = (float)_ctrl_correction.thrustCorrection;
 
-		if (fabs(_control_correction(1))  < 0.00001){
+		if (fabs(_control_correction(1))  < (float)0.00001){
 	 	 	start_timer = 1;
 		}
 	}
